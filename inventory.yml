@@ -1,0 +1,35 @@
+---
+all:
+  vars:
+    ansible_connection: ansible.netcommon.network_cli
+    ansible_network_os: cisco.nxos.nxos
+    ansible_user: admin
+    ansible_password: admin
+    ansible_become: true
+    ansible_become_method: enable
+    ansible_become_password: admin
+
+  children:
+    spines:
+      vars:
+        asn: 65010
+      hosts:
+        clab-nxos-spine01:
+          id: 1
+        clab-nxos-spine02:
+          id: 2
+
+    leafs:
+      hosts:
+        clab-nxos-leaf01:
+          id: 11
+          asn: 65011
+        clab-nxos-leaf02:
+          id: 12
+          asn: 65012
+        clab-nxos-leaf03:
+          id: 13
+          asn: 65013
+        clab-nxos-leaf04:
+          id: 14
+          asn: 65014

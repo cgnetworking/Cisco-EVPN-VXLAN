@@ -1,0 +1,65 @@
+---
+loopback_base: "192.168.1"
+evpn_route_target_asn: 65000
+
+links:
+  - leaf: clab-nxos-leaf01
+    spine: clab-nxos-spine01
+    leaf_intf: Ethernet1/1
+    spine_intf: Ethernet1/1
+    leaf_ip: 10.0.0.0/31
+    spine_ip: 10.0.0.1/31
+
+  - leaf: clab-nxos-leaf01
+    spine: clab-nxos-spine02
+    leaf_intf: Ethernet1/2
+    spine_intf: Ethernet1/1
+    leaf_ip: 10.0.0.2/31
+    spine_ip: 10.0.0.3/31
+
+  - leaf: clab-nxos-leaf02
+    spine: clab-nxos-spine01
+    leaf_intf: Ethernet1/1
+    spine_intf: Ethernet1/2
+    leaf_ip: 10.0.0.4/31
+    spine_ip: 10.0.0.5/31
+
+  - leaf: clab-nxos-leaf02
+    spine: clab-nxos-spine02
+    leaf_intf: Ethernet1/2
+    spine_intf: Ethernet1/2
+    leaf_ip: 10.0.0.6/31
+    spine_ip: 10.0.0.7/31
+
+  - leaf: clab-nxos-leaf03
+    spine: clab-nxos-spine01
+    leaf_intf: Ethernet1/1
+    spine_intf: Ethernet1/3
+    leaf_ip: 10.0.0.8/31
+    spine_ip: 10.0.0.9/31
+
+  - leaf: clab-nxos-leaf03
+    spine: clab-nxos-spine02
+    leaf_intf: Ethernet1/2
+    spine_intf: Ethernet1/3
+    leaf_ip: 10.0.0.10/31
+    spine_ip: 10.0.0.11/31
+
+  - leaf: clab-nxos-leaf04
+    spine: clab-nxos-spine01
+    leaf_intf: Ethernet1/1
+    spine_intf: Ethernet1/4
+    leaf_ip: 10.0.0.12/31
+    spine_ip: 10.0.0.13/31
+
+  - leaf: clab-nxos-leaf04
+    spine: clab-nxos-spine02
+    leaf_intf: Ethernet1/2
+    spine_intf: Ethernet1/4
+    leaf_ip: 10.0.0.14/31
+    spine_ip: 10.0.0.15/31
+
+vlans:
+  - { id: 10, vni: 10010, gateway: 10.10.10.1/24, vrf: TENANT-1, tenant_id: 1, l3_vni: 90001 }
+  - { id: 20, vni: 10020, gateway: 10.10.20.1/24, vrf: TENANT-1, tenant_id: 1, l3_vni: 90001 }
+  - { id: 30, vni: 10030, gateway: 10.10.30.1/24, vrf: TENANT-2, tenant_id: 2, l3_vni: 90002 }
