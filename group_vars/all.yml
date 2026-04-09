@@ -10,8 +10,8 @@ ssh_local_user_role: "network-admin"
 ssh_local_user_pubkey: "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIIg7CYAc3w8/tJ4HoYzp1FkwuUNNc55fsUq/8BqGq7cE Arista"
 
 vrfs:
-  - { name: TENANT-1, l3_vlan: 101, l3_vni: 90001 }
-  - { name: TENANT-2, l3_vlan: 102, l3_vni: 90002 }
+  - { name: TENANT-1, l3_vlan: 1001, l3_vni: 90001 }
+  - { name: TENANT-2, l3_vlan: 1002, l3_vni: 90002 }
 
 links:
   - leaf: clab-nxos-leaf01
