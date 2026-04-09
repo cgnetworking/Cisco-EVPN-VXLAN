@@ -29,6 +29,12 @@
           - nv overlay evpn
           - fabric forwarding anycast-gateway-mac {{ anycast_gateway_mac }}
 
+    - name: Configure local SSH user on leafs
+      cisco.nxos.nxos_config:
+        lines:
+          - username {{ ssh_local_user }} role {{ ssh_local_user_role }}
+          - username {{ ssh_local_user }} sshkey {{ ssh_local_user_pubkey }}
+
     - name: Configure Loopback0
       cisco.nxos.nxos_config:
         parents: interface loopback0
@@ -255,6 +261,12 @@
           - feature bgp
           - feature nv overlay
           - nv overlay evpn
+
+    - name: Configure local SSH user on spines
+      cisco.nxos.nxos_config:
+        lines:
+          - username {{ ssh_local_user }} role {{ ssh_local_user_role }}
+          - username {{ ssh_local_user }} sshkey {{ ssh_local_user_pubkey }}
 
     - name: Configure spine Loopback0
       cisco.nxos.nxos_config:

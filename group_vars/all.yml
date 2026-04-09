@@ -6,6 +6,9 @@ evpn_route_target_asn: 65000
 fabric_mtu: 9216
 bgp_loopback_tag: 11111
 host_svi_route_tag: 22222
+ssh_local_user: "cg"
+ssh_local_user_role: "network-admin"
+ssh_local_user_pubkey: "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIIg7CYAc3w8/tJ4HoYzp1FkwuUNNc55fsUq/8BqGq7cE Arista"
 
 vrfs:
   - { name: TENANT-1, l3_vlan: 101, l3_vni: 90001 }
