@@ -6,7 +6,7 @@ topology:
   kinds:
     cisco_n9kv:
       # Update the tag if your locally built vrnetlab image uses a different NX-OS version.
-      image: vr-n9kv:10.5.5.M
+      image: vrnetlab/cisco_n9kv:9300-10.5.5.M
   nodes:
     spine01:
       kind: cisco_n9kv
