@@ -27,7 +27,6 @@
           - feature nv overlay
           - feature vn-segment-vlan-based
           - nv overlay evpn
-          - ip routing
           - fabric forwarding anycast-gateway-mac {{ anycast_gateway_mac }}
 
     - name: Configure Loopback0
@@ -255,7 +254,6 @@
           - feature bgp
           - feature nv overlay
           - nv overlay evpn
-          - ip routing
 
     - name: Configure spine Loopback0
       cisco.nxos.nxos_config:
