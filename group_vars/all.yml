@@ -1,6 +1,15 @@
 ---
 loopback_base: "192.168.1"
+vtep_loopback_base: "192.168.255"
+anycast_gateway_mac: "0000.0000.1001"
 evpn_route_target_asn: 65000
+fabric_mtu: 9216
+bgp_loopback_tag: 11111
+host_svi_tag: 54321
+
+vrfs:
+  - { name: TENANT-1, l3_vlan: 101, l3_vni: 90001 }
+  - { name: TENANT-2, l3_vlan: 102, l3_vni: 90002 }
 
 links:
   - leaf: clab-nxos-leaf01
@@ -60,6 +69,6 @@ links:
     spine_ip: 10.0.0.15/31
 
 vlans:
-  - { id: 10, vni: 10010, gateway: 10.10.10.1/24, vrf: TENANT-1, tenant_id: 1, l3_vni: 90001 }
-  - { id: 20, vni: 10020, gateway: 10.10.20.1/24, vrf: TENANT-1, tenant_id: 1, l3_vni: 90001 }
-  - { id: 30, vni: 10030, gateway: 10.10.30.1/24, vrf: TENANT-2, tenant_id: 2, l3_vni: 90002 }
+  - { id: 10, vni: 10010, gateway: 10.10.10.1/24, vrf: TENANT-1 }
+  - { id: 20, vni: 10020, gateway: 10.10.20.1/24, vrf: TENANT-1 }
+  - { id: 30, vni: 10030, gateway: 10.10.30.1/24, vrf: TENANT-2 }
