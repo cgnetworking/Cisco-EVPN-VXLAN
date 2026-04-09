@@ -138,7 +138,6 @@
         parents: router bgp {{ asn }}
         lines:
           - neighbor {{ item.spine_ip.split('/')[0] }} remote-as {{ spine_asn }}
-          - neighbor {{ item.spine_ip.split('/')[0] }} update-source {{ item.leaf_intf }}
       loop: "{{ links }}"
       when: item.leaf == inventory_hostname
 
@@ -315,7 +314,6 @@
         parents: router bgp {{ asn }}
         lines:
           - neighbor {{ item.leaf_ip.split('/')[0] }} remote-as {{ hostvars[item.leaf].asn }}
-          - neighbor {{ item.leaf_ip.split('/')[0] }} update-source {{ item.spine_intf }}
       loop: "{{ links }}"
       when: item.spine == inventory_hostname
 
