@@ -63,8 +63,8 @@
           - vrf context {{ item.name }}
           - address-family ipv4 unicast
         lines:
-          - route-target both {{ evpn_route_target_asn }}:{{ item.l3_vni }}
-          - route-target both {{ evpn_route_target_asn }}:{{ item.l3_vni }} evpn
+          - route-target both {{ item.l3_vlan }}:{{ item.l3_vni }}
+          - route-target both {{ item.l3_vlan }}:{{ item.l3_vni }} evpn
       loop: "{{ vrfs }}"
 
     - name: Configure L3VNI VLAN mappings
@@ -231,8 +231,8 @@
           - vni {{ item.vni }} l2
         lines:
           - rd auto
-          - route-target import {{ evpn_route_target_asn }}:{{ item.vni }}
-          - route-target export {{ evpn_route_target_asn }}:{{ item.vni }}
+          - route-target import {{ item.id }}:{{ item.vni }}
+          - route-target export {{ item.id }}:{{ item.vni }}
       loop: "{{ vlans }}"
 
     - name: Save leaf configuration when modified
