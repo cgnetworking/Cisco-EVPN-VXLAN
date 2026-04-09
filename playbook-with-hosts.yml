@@ -1,0 +1,393 @@
+---
+# Aligned to Cisco Nexus 9000 Series NX-OS VXLAN Configuration Guide, Release 10.5(x):
+# - "Configuring the Underlay" for the eBGP underlay
+# - "Configure VXLAN BGP EVPN" for L3VNI, NVE, and eBGP EVPN overlay behavior
+# =========================
+# LEAF CONFIGURATION
+# =========================
+- name: Configure leafs (VXLAN EVPN on NX-OS)
+  hosts: leafs
+  gather_facts: false
+  connection: ansible.netcommon.network_cli
+  collections:
+    - cisco.nxos
+
+  vars:
+    ansible_network_os: cisco.nxos.nxos
+    loopback: "{{ loopback_base }}.{{ id }}"
+    vtep_loopback: "{{ vtep_loopback_base }}.{{ id }}"
+    spine_asn: "{{ hostvars[groups['spines'][0]].asn }}"
+
+  tasks:
+    - name: Enable required NX-OS features
+      cisco.nxos.nxos_config:
+        lines:
+          - feature bgp
+          - feature interface-vlan
+          - feature nv overlay
+          - feature vn-segment-vlan-based
+          - nv overlay evpn
+          - fabric forwarding anycast-gateway-mac {{ anycast_gateway_mac }}
+
+    - name: Configure local SSH user on leafs
+      cisco.nxos.nxos_config:
+        lines:
+          - username {{ ssh_local_user }} role {{ ssh_local_user_role }}
+          - username {{ ssh_local_user }} sshkey {{ ssh_local_user_pubkey }}
+
+    - name: Configure Loopback0
+      cisco.nxos.nxos_config:
+        parents: interface loopback0
+        lines:
+          - ip address {{ loopback }}/32 tag {{ bgp_loopback_tag }}
+          - no shutdown
+
+    - name: Configure Loopback1 for VTEP
+      cisco.nxos.nxos_config:
+        parents: interface loopback1
+        lines:
+          - ip address {{ vtep_loopback }}/32 tag {{ bgp_loopback_tag }}
+          - no shutdown
+
+    - name: Configure tenant VRFs
+      cisco.nxos.nxos_config:
+        parents: vrf context {{ item.name }}
+        lines:
+          - vni {{ item.l3_vni }}
+          - rd auto
+      loop: "{{ vrfs }}"
+
+    - name: Configure tenant VRF route-targets
+      cisco.nxos.nxos_config:
+        parents:
+          - vrf context {{ item.name }}
+          - address-family ipv4 unicast
+        lines:
+          - route-target both {{ item.l3_vlan }}:{{ item.l3_vni }}
+          - route-target both {{ item.l3_vlan }}:{{ item.l3_vni }} evpn
+      loop: "{{ vrfs }}"
+
+    - name: Configure L3VNI VLAN mappings
+      cisco.nxos.nxos_config:
+        parents: vlan {{ item.l3_vlan }}
+        lines:
+          - vn-segment {{ item.l3_vni }}
+      loop: "{{ vrfs }}"
+
+    - name: Configure L3VNI SVIs
+      cisco.nxos.nxos_config:
+        parents: interface vlan{{ item.l3_vlan }}
+        lines:
+          - mtu {{ fabric_mtu }}
+          - vrf member {{ item.name }}
+          - ip forward
+          - no ip redirects
+          - no shutdown
+      loop: "{{ vrfs }}"
+
+    - name: Configure leaf underlay interfaces
+      cisco.nxos.nxos_config:
+        parents: interface {{ item.leaf_intf }}
+        lines:
+          - description {{ item.leaf }}-to-{{ item.spine }}
+          - no switchport
+          - mtu {{ fabric_mtu }}
+          - ip address {{ item.leaf_ip }}
+          - no shutdown
+      loop: "{{ links }}"
+      when: item.leaf == inventory_hostname
+
+    - name: Configure EVPN next-hop route-map
+      cisco.nxos.nxos_config:
+        parents: route-map NEXT-HOP-UNCHANGED permit 10
+        lines:
+          - set ip next-hop unchanged
+
+    - name: Configure leaf loopback redistribution route-map
+      cisco.nxos.nxos_config:
+        parents: route-map LOOPBACK-ROUTES permit 10
+        lines:
+          - match tag {{ bgp_loopback_tag }}
+
+    - name: Configure host SVI redistribution route-map
+      cisco.nxos.nxos_config:
+        parents: route-map HOST-SVI-ROUTES permit 10
+        lines:
+          - match tag {{ host_svi_route_tag }}
+
+    - name: Configure base BGP on leafs
+      cisco.nxos.nxos_config:
+        parents: router bgp {{ asn }}
+        lines:
+          - router-id {{ loopback }}
+
+    - name: Configure leaf BGP underlay address-family
+      cisco.nxos.nxos_config:
+        parents:
+          - router bgp {{ asn }}
+          - address-family ipv4 unicast
+        lines:
+          - maximum-paths 2
+          - redistribute direct route-map LOOPBACK-ROUTES
+
+    - name: Configure leaf BGP EVPN address-family
+      cisco.nxos.nxos_config:
+        parents:
+          - router bgp {{ asn }}
+          - address-family l2vpn evpn
+        lines:
+          - nexthop route-map NEXT-HOP-UNCHANGED
+          - retain route-target all
+
+    - name: Configure leaf underlay BGP neighbors
+      cisco.nxos.nxos_config:
+        parents: router bgp {{ asn }}
+        lines:
+          - neighbor {{ item.spine_ip.split('/')[0] }} remote-as {{ spine_asn }}
+      loop: "{{ links }}"
+      when: item.leaf == inventory_hostname
+
+    - name: Activate leaf underlay neighbors for IPv4 unicast
+      cisco.nxos.nxos_config:
+        parents:
+          - router bgp {{ asn }}
+          - neighbor {{ item.spine_ip.split('/')[0] }}
+        lines:
+          - address-family ipv4 unicast
+      loop: "{{ links }}"
+      when: item.leaf == inventory_hostname
+
+    - name: Configure leaf EVPN neighbors
+      cisco.nxos.nxos_config:
+        parents:
+          - router bgp {{ asn }}
+          - neighbor {{ loopback_base }}.{{ hostvars[item].id }}
+        lines:
+          - remote-as {{ hostvars[item].asn }}
+          - update-source loopback0
+          - ebgp-multihop 3
+      loop: "{{ groups['spines'] }}"
+
+    - name: Configure leaf EVPN neighbor address-family
+      cisco.nxos.nxos_config:
+        parents:
+          - router bgp {{ asn }}
+          - neighbor {{ loopback_base }}.{{ hostvars[item].id }}
+          - address-family l2vpn evpn
+        lines:
+          - send-community both
+          - disable-peer-as-check
+          - route-map NEXT-HOP-UNCHANGED out
+      loop: "{{ groups['spines'] }}"
+
+    - name: Configure BGP VRF routing for leafs
+      cisco.nxos.nxos_config:
+        parents:
+          - router bgp {{ asn }}
+          - vrf {{ item.name }}
+          - address-family ipv4 unicast
+        lines:
+          - advertise l2vpn evpn
+          - maximum-paths 2
+          - redistribute direct route-map HOST-SVI-ROUTES
+      loop: "{{ vrfs }}"
+
+    - name: Configure VLAN to VNI mappings
+      cisco.nxos.nxos_config:
+        parents: vlan {{ item.id }}
+        lines:
+          - vn-segment {{ item.vni }}
+      loop: "{{ vlans }}"
+
+    - name: Configure SVIs for tenant gateways
+      cisco.nxos.nxos_config:
+        parents: interface vlan{{ item.id }}
+        lines:
+          - vrf member {{ item.vrf }}
+          - ip address {{ item.gateway }} tag {{ host_svi_route_tag }}
+          - fabric forwarding mode anycast-gateway
+          - no shutdown
+      loop: "{{ vlans }}"
+
+    - name: Configure host-facing access ports on leaf01 and leaf02
+      vars:
+        host_access_vlan_map:
+          clab-nxos-leaf01: 10
+          clab-nxos-leaf02: 20
+      cisco.nxos.nxos_config:
+        parents: interface Ethernet1/3
+        lines:
+          - switchport
+          - switchport mode access
+          - switchport access vlan {{ host_access_vlan_map[inventory_hostname] }}
+          - no shutdown
+      when: inventory_hostname in host_access_vlan_map
+
+    - name: Configure NVE interface base
+      cisco.nxos.nxos_config:
+        parents: interface nve1
+        lines:
+          - no shutdown
+          - source-interface loopback1
+          - host-reachability protocol bgp
+          - global ingress-replication protocol bgp
+
+    - name: Configure leaf L2 VNIs on NVE
+      cisco.nxos.nxos_config:
+        parents:
+          - interface nve1
+          - member vni {{ item.vni }}
+        lines:
+          - ingress-replication protocol bgp
+      loop: "{{ vlans }}"
+
+    - name: Configure leaf L3 VNIs on NVE
+      cisco.nxos.nxos_config:
+        parents: interface nve1
+        lines:
+          - member vni {{ item.l3_vni }} associate-vrf
+      loop: "{{ vrfs }}"
+
+    - name: Configure EVPN L2 VNI attributes
+      cisco.nxos.nxos_config:
+        parents:
+          - evpn
+          - vni {{ item.vni }} l2
+        lines:
+          - rd auto
+          - route-target import {{ item.id }}:{{ item.vni }}
+          - route-target export {{ item.id }}:{{ item.vni }}
+      loop: "{{ vlans }}"
+
+    - name: Save leaf configuration when modified
+      cisco.nxos.nxos_config:
+        save_when: modified
+
+
+# =========================
+# SPINE CONFIGURATION
+# =========================
+- name: Configure spines (VXLAN EVPN on NX-OS)
+  hosts: spines
+  gather_facts: false
+  connection: ansible.netcommon.network_cli
+  collections:
+    - cisco.nxos
+
+  vars:
+    ansible_network_os: cisco.nxos.nxos
+    loopback: "{{ loopback_base }}.{{ id }}"
+
+  tasks:
+    - name: Enable required NX-OS features on spines
+      cisco.nxos.nxos_config:
+        lines:
+          - feature bgp
+          - feature nv overlay
+          - nv overlay evpn
+
+    - name: Configure local SSH user on spines
+      cisco.nxos.nxos_config:
+        lines:
+          - username {{ ssh_local_user }} role {{ ssh_local_user_role }}
+          - username {{ ssh_local_user }} sshkey {{ ssh_local_user_pubkey }}
+
+    - name: Configure spine Loopback0
+      cisco.nxos.nxos_config:
+        parents: interface loopback0
+        lines:
+          - ip address {{ loopback }}/32 tag {{ bgp_loopback_tag }}
+          - no shutdown
+
+    - name: Configure spine underlay interfaces
+      cisco.nxos.nxos_config:
+        parents: interface {{ item.spine_intf }}
+        lines:
+          - description {{ item.spine }}-to-{{ item.leaf }}
+          - no switchport
+          - mtu {{ fabric_mtu }}
+          - ip address {{ item.spine_ip }}
+          - no shutdown
+      loop: "{{ links }}"
+      when: item.spine == inventory_hostname
+
+    - name: Configure EVPN next-hop route-map on spines
+      cisco.nxos.nxos_config:
+        parents: route-map NEXT-HOP-UNCHANGED permit 10
+        lines:
+          - set ip next-hop unchanged
+
+    - name: Configure spine loopback redistribution route-map
+      cisco.nxos.nxos_config:
+        parents: route-map LOOPBACK-ROUTES permit 10
+        lines:
+          - match tag {{ bgp_loopback_tag }}
+
+    - name: Configure base BGP on spines
+      cisco.nxos.nxos_config:
+        parents: router bgp {{ asn }}
+        lines:
+          - router-id {{ loopback }}
+
+    - name: Configure spine BGP underlay address-family
+      cisco.nxos.nxos_config:
+        parents:
+          - router bgp {{ asn }}
+          - address-family ipv4 unicast
+        lines:
+          - maximum-paths 64
+          - redistribute direct route-map LOOPBACK-ROUTES
+
+    - name: Configure spine BGP EVPN address-family
+      cisco.nxos.nxos_config:
+        parents:
+          - router bgp {{ asn }}
+          - address-family l2vpn evpn
+        lines:
+          - nexthop route-map NEXT-HOP-UNCHANGED
+          - retain route-target all
+
+    - name: Configure spine underlay BGP neighbors
+      cisco.nxos.nxos_config:
+        parents: router bgp {{ asn }}
+        lines:
+          - neighbor {{ item.leaf_ip.split('/')[0] }} remote-as {{ hostvars[item.leaf].asn }}
+      loop: "{{ links }}"
+      when: item.spine == inventory_hostname
+
+    - name: Activate spine underlay neighbors for IPv4 unicast
+      cisco.nxos.nxos_config:
+        parents:
+          - router bgp {{ asn }}
+          - neighbor {{ item.leaf_ip.split('/')[0] }}
+        lines:
+          - address-family ipv4 unicast
+      loop: "{{ links }}"
+      when: item.spine == inventory_hostname
+
+    - name: Configure spine EVPN neighbors
+      cisco.nxos.nxos_config:
+        parents:
+          - router bgp {{ asn }}
+          - neighbor {{ loopback_base }}.{{ hostvars[item].id }}
+        lines:
+          - remote-as {{ hostvars[item].asn }}
+          - update-source loopback0
+          - ebgp-multihop 3
+      loop: "{{ groups['leafs'] }}"
+
+    - name: Configure spine EVPN neighbor address-family
+      cisco.nxos.nxos_config:
+        parents:
+          - router bgp {{ asn }}
+          - neighbor {{ loopback_base }}.{{ hostvars[item].id }}
+          - address-family l2vpn evpn
+        lines:
+          - send-community both
+          - disable-peer-as-check
+          - route-map NEXT-HOP-UNCHANGED out
+      loop: "{{ groups['leafs'] }}"
+
+    - name: Save spine configuration when modified
+      cisco.nxos.nxos_config:
+        save_when: modified
