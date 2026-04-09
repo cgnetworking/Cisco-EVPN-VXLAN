@@ -94,21 +94,21 @@
 
     - name: Configure EVPN next-hop route-map
       cisco.nxos.nxos_config:
-        parents: route-map NEXT-HOP-UNCH permit 10
+        parents: route-map NEXT-HOP-UNCHANGED permit 10
         lines:
           - set ip next-hop unchanged
 
     - name: Configure leaf loopback redistribution route-map
       cisco.nxos.nxos_config:
-        parents: route-map LOOPBACK permit 10
+        parents: route-map LOOPBACK-ROUTES permit 10
         lines:
           - match tag {{ bgp_loopback_tag }}
 
     - name: Configure host SVI redistribution route-map
       cisco.nxos.nxos_config:
-        parents: route-map HOST-SVI permit 10
+        parents: route-map HOST-SVI-ROUTES permit 10
         lines:
-          - match tag {{ host_svi_tag }}
+          - match tag {{ host_svi_route_tag }}
 
     - name: Configure base BGP on leafs
       cisco.nxos.nxos_config:
@@ -123,7 +123,7 @@
           - address-family ipv4 unicast
         lines:
           - maximum-paths 2
-          - redistribute direct route-map LOOPBACK
+          - redistribute direct route-map LOOPBACK-ROUTES
 
     - name: Configure leaf BGP EVPN address-family
       cisco.nxos.nxos_config:
@@ -131,7 +131,7 @@
           - router bgp {{ asn }}
           - address-family l2vpn evpn
         lines:
-          - nexthop route-map NEXT-HOP-UNCH
+          - nexthop route-map NEXT-HOP-UNCHANGED
           - retain route-target all
 
     - name: Configure leaf underlay BGP neighbors
@@ -161,7 +161,7 @@
         lines:
           - send-community both
           - disable-peer-as-check
-          - route-map NEXT-HOP-UNCH out
+          - route-map NEXT-HOP-UNCHANGED out
       loop: "{{ groups['spines'] }}"
 
     - name: Configure BGP VRF routing for leafs
@@ -173,7 +173,7 @@
         lines:
           - advertise l2vpn evpn
           - maximum-paths 2
-          - redistribute direct route-map HOST-SVI
+          - redistribute direct route-map HOST-SVI-ROUTES
       loop: "{{ vrfs }}"
 
     - name: Configure VLAN to VNI mappings
@@ -188,7 +188,7 @@
         parents: interface vlan{{ item.id }}
         lines:
           - vrf member {{ item.vrf }}
-          - ip address {{ item.gateway }} tag {{ host_svi_tag }}
+          - ip address {{ item.gateway }} tag {{ host_svi_route_tag }}
           - fabric forwarding mode anycast-gateway
           - no shutdown
       loop: "{{ vlans }}"
@@ -278,13 +278,13 @@
 
     - name: Configure EVPN next-hop route-map on spines
       cisco.nxos.nxos_config:
-        parents: route-map NEXT-HOP-UNCH permit 10
+        parents: route-map NEXT-HOP-UNCHANGED permit 10
         lines:
           - set ip next-hop unchanged
 
     - name: Configure spine loopback redistribution route-map
       cisco.nxos.nxos_config:
-        parents: route-map LOOPBACK permit 10
+        parents: route-map LOOPBACK-ROUTES permit 10
         lines:
           - match tag {{ bgp_loopback_tag }}
 
@@ -301,7 +301,7 @@
           - address-family ipv4 unicast
         lines:
           - maximum-paths 64
-          - redistribute direct route-map LOOPBACK
+          - redistribute direct route-map LOOPBACK-ROUTES
 
     - name: Configure spine BGP EVPN address-family
       cisco.nxos.nxos_config:
@@ -309,7 +309,7 @@
           - router bgp {{ asn }}
           - address-family l2vpn evpn
         lines:
-          - nexthop route-map NEXT-HOP-UNCH
+          - nexthop route-map NEXT-HOP-UNCHANGED
           - retain route-target all
 
     - name: Configure spine underlay BGP neighbors
@@ -339,7 +339,7 @@
         lines:
           - send-community both
           - disable-peer-as-check
-          - route-map NEXT-HOP-UNCH out
+          - route-map NEXT-HOP-UNCHANGED out
       loop: "{{ groups['leafs'] }}"
 
     - name: Save spine configuration when modified

@@ -5,7 +5,7 @@ anycast_gateway_mac: "0000.0000.1001"
 evpn_route_target_asn: 65000
 fabric_mtu: 9216
 bgp_loopback_tag: 11111
-host_svi_tag: 54321
+host_svi_route_tag: 22222
 
 vrfs:
   - { name: TENANT-1, l3_vlan: 101, l3_vni: 90001 }
