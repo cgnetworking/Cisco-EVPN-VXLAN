@@ -143,11 +143,13 @@
 
     - name: Configure leaf EVPN neighbors
       cisco.nxos.nxos_config:
-        parents: router bgp {{ asn }}
+        parents:
+          - router bgp {{ asn }}
+          - neighbor {{ loopback_base }}.{{ hostvars[item].id }}
         lines:
-          - neighbor {{ loopback_base }}.{{ hostvars[item].id }} remote-as {{ hostvars[item].asn }}
-          - neighbor {{ loopback_base }}.{{ hostvars[item].id }} update-source loopback0
-          - neighbor {{ loopback_base }}.{{ hostvars[item].id }} ebgp-multihop 3
+          - remote-as {{ hostvars[item].asn }}
+          - update-source loopback0
+          - ebgp-multihop 3
       loop: "{{ groups['spines'] }}"
 
     - name: Configure leaf EVPN neighbor address-family
@@ -319,11 +321,13 @@
 
     - name: Configure spine EVPN neighbors
       cisco.nxos.nxos_config:
-        parents: router bgp {{ asn }}
+        parents:
+          - router bgp {{ asn }}
+          - neighbor {{ loopback_base }}.{{ hostvars[item].id }}
         lines:
-          - neighbor {{ loopback_base }}.{{ hostvars[item].id }} remote-as {{ hostvars[item].asn }}
-          - neighbor {{ loopback_base }}.{{ hostvars[item].id }} update-source loopback0
-          - neighbor {{ loopback_base }}.{{ hostvars[item].id }} ebgp-multihop 3
+          - remote-as {{ hostvars[item].asn }}
+          - update-source loopback0
+          - ebgp-multihop 3
       loop: "{{ groups['leafs'] }}"
 
     - name: Configure spine EVPN neighbor address-family
