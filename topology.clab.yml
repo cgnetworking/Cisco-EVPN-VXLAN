@@ -1,0 +1,53 @@
+name: nxos
+mgmt:
+  network: mgmt
+  ipv4-subnet: 10.0.1.0/24
+topology:
+  kinds:
+    cisco_n9kv:
+      # Update the tag if your locally built vrnetlab image uses a different NX-OS version.
+      image: vr-n9kv:10.5.5.M
+  nodes:
+    spine01:
+      kind: cisco_n9kv
+      mgmt-ipv4: 10.0.1.10
+    spine02:
+      kind: cisco_n9kv
+      mgmt-ipv4: 10.0.1.20
+    leaf01:
+      kind: cisco_n9kv
+      mgmt-ipv4: 10.0.1.30
+    leaf02:
+      kind: cisco_n9kv
+      mgmt-ipv4: 10.0.1.40
+    leaf03:
+      kind: cisco_n9kv
+      mgmt-ipv4: 10.0.1.50
+    leaf04:
+      kind: cisco_n9kv
+      mgmt-ipv4: 10.0.1.60
+  links:
+    - endpoints:
+        - "spine01:Ethernet1/1"
+        - "leaf01:Ethernet1/1"
+    - endpoints:
+        - "spine01:Ethernet1/2"
+        - "leaf02:Ethernet1/1"
+    - endpoints:
+        - "spine01:Ethernet1/3"
+        - "leaf03:Ethernet1/1"
+    - endpoints:
+        - "spine01:Ethernet1/4"
+        - "leaf04:Ethernet1/1"
+    - endpoints:
+        - "spine02:Ethernet1/1"
+        - "leaf01:Ethernet1/2"
+    - endpoints:
+        - "spine02:Ethernet1/2"
+        - "leaf02:Ethernet1/2"
+    - endpoints:
+        - "spine02:Ethernet1/3"
+        - "leaf03:Ethernet1/2"
+    - endpoints:
+        - "spine02:Ethernet1/4"
+        - "leaf04:Ethernet1/2"
