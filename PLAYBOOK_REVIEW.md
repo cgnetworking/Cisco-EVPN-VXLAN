@@ -9,7 +9,7 @@ This document reviews [playbook.yml](playbook.yml) as a Cisco Nexus 9300 VXLAN E
 
 ## Review Summary
 
-The current playbook is structured like a non-vPC leaf/spine EVPN fabric. It follows the Cisco 10.5(x) NX-OS VXLAN guide for the eBGP underlay and the eBGP EVPN overlay, while intentionally not implementing the iBGP, OSPF, IS-IS, multicast-underlay, TRM, or vPC-specific branches of the guide.
+The current playbook is structured like a non-vPC leaf/spine EVPN fabric. It follows the Cisco 10.5(x) NX-OS VXLAN guide for the eBGP underlay and the eBGP EVPN overlay, and it also provisions a local SSH user/key on leaves and spines from inventory variables.
 
 ## Current Policy And Tag Names
 
@@ -18,6 +18,9 @@ The current playbook is structured like a non-vPC leaf/spine EVPN fabric. It fol
 - Host SVI redistribution route-map: `HOST-SVI-ROUTES`
 - Loopback route tag variable: `bgp_loopback_tag` = `11111`
 - Host SVI route tag variable: `host_svi_route_tag` = `22222`
+- Local SSH user variable: `ssh_local_user` = `cg`
+- Local SSH role variable: `ssh_local_user_role` = `network-admin`
+- Local SSH key variable: `ssh_local_user_pubkey`
 
 ## Source Key
 
@@ -36,48 +39,50 @@ The current playbook is structured like a non-vPC leaf/spine EVPN fabric. It fol
 | --- | --- | --- | --- |
 | 8 | Configure leafs (VXLAN EVPN on NX-OS) | Applies all VTEP-side routing, VXLAN, EVPN, and gateway configuration to the leaf switches. | `UG`, `EG-BGP`, `EG-NVE` |
 | 22 | Enable required NX-OS features | Turns on the NX-OS feature gates required before BGP, SVIs, VNIs, and EVPN configuration can exist. | `UG`, `EG-VLAN`, `EG-VRF` |
-| 33 | Configure Loopback0 | Creates the stable router-id and overlay peering source used by BGP EVPN. | `UG`, `EG-BGP` |
-| 40 | Configure Loopback1 for VTEP | Creates the VTEP source address that NVE uses for VXLAN encapsulation. | `EG-NVE` |
-| 47 | Configure tenant VRFs | Creates a tenant routing context and binds each VRF to its L3VNI. | `EG-VRF` |
-| 55 | Configure tenant VRF route-targets | Uses explicit RT import/export because Cisco requires manual RTs for eBGP fabrics instead of `auto`. | `EG-VRF` |
-| 65 | Configure L3VNI VLAN mappings | Maps each L3VNI to a VLAN so NX-OS can instantiate routed VXLAN services. | `EG-VLAN`, `EG-VRF` |
-| 72 | Configure L3VNI SVIs | Builds the core-facing SVI used for inter-subnet routing inside the tenant VRF. | `EG-CoreSVI` |
-| 83 | Configure leaf underlay interfaces | Creates routed point-to-point uplinks with fabric MTU toward the spines. | `UG` |
-| 95 | Configure EVPN next-hop route-map | Creates `NEXT-HOP-UNCHANGED`, which preserves the original VTEP next hop when EVPN routes are re-advertised in eBGP. | `EG-BGP` |
-| 101 | Configure leaf loopback redistribution route-map | Creates `LOOPBACK-ROUTES`, which restricts underlay redistribution to loopbacks tagged with `bgp_loopback_tag`. | `UG`, `EG-BGP` |
-| 107 | Configure host SVI redistribution route-map | Creates `HOST-SVI-ROUTES`, which restricts tenant VRF redistribution to host gateway SVIs tagged with `host_svi_route_tag`. | `EG-HostSVI`, `EG-BGP` |
-| 113 | Configure base BGP on leafs | Instantiates the leaf BGP process and sets a deterministic router-id. | `UG`, `EG-BGP` |
-| 119 | Configure leaf BGP underlay address-family | Enables ECMP and redistributes `LOOPBACK-ROUTES` so overlay and VTEP addresses are reachable across the underlay. | `UG`, `EG-BGP` |
-| 128 | Configure leaf BGP EVPN address-family | Enables the EVPN control plane and applies `NEXT-HOP-UNCHANGED` at the EVPN address-family level. | `EG-BGP` |
-| 137 | Configure leaf underlay BGP neighbors | Creates the eBGP sessions from each leaf to its directly connected spines. | `UG` |
-| 146 | Configure leaf EVPN neighbors | Creates multihop eBGP EVPN sessions from each leaf to the spine loopbacks. | `EG-BGP` |
-| 155 | Configure leaf EVPN neighbor address-family | Sends communities and applies the per-neighbor `NEXT-HOP-UNCHANGED` policy required by the eBGP overlay. | `EG-BGP` |
-| 167 | Configure BGP VRF routing for leafs | Exports tenant IPv4 routes from the VRF RIB into EVPN and redistributes only `HOST-SVI-ROUTES` connected routes. | `EG-VRF`, `EG-BGP` |
-| 179 | Configure VLAN to VNI mappings | Binds each bridged tenant VLAN to its L2 VNI. | `EG-VLAN` |
-| 186 | Configure SVIs for tenant gateways | Creates the distributed anycast default gateway for local endpoints in each VLAN and tags the connected route with `host_svi_route_tag`. | `EG-HostSVI` |
-| 196 | Configure NVE interface base | Brings up the VTEP interface, points it at Loopback1, and enables BGP-based host reachability. | `EG-NVE` |
-| 205 | Configure leaf L2 VNIs on NVE | Attaches each bridged VNI to `nve1` and enables BGP ingress replication for BUM traffic. | `EG-NVE` |
-| 214 | Configure leaf L3 VNIs on NVE | Attaches each routed VNI to `nve1` for tenant routing across the fabric. | `EG-NVE` |
-| 221 | Configure EVPN L2 VNI attributes | Uses explicit EVPN RD/RT overrides for L2 VNIs instead of relying on `auto`. | `EG-VLAN` |
-| 232 | Save leaf configuration when modified | Saves the running configuration to startup configuration only when Ansible changed the device. | `ANS` |
+| 32 | Configure local SSH user on leafs | Creates a deterministic local SSH management user and installs the configured public key. | `ANS` |
+| 38 | Configure Loopback0 | Creates the stable router-id and overlay peering source used by BGP EVPN. | `UG`, `EG-BGP` |
+| 45 | Configure Loopback1 for VTEP | Creates the VTEP source address that NVE uses for VXLAN encapsulation. | `EG-NVE` |
+| 52 | Configure tenant VRFs | Creates a tenant routing context and binds each VRF to its L3VNI. | `EG-VRF` |
+| 60 | Configure tenant VRF route-targets | Uses explicit RT import/export because Cisco requires manual RTs for eBGP fabrics instead of `auto`. | `EG-VRF` |
+| 70 | Configure L3VNI VLAN mappings | Maps each L3VNI to a VLAN so NX-OS can instantiate routed VXLAN services. | `EG-VLAN`, `EG-VRF` |
+| 77 | Configure L3VNI SVIs | Builds the core-facing SVI used for inter-subnet routing inside the tenant VRF. | `EG-CoreSVI` |
+| 88 | Configure leaf underlay interfaces | Creates routed point-to-point uplinks with fabric MTU toward the spines. | `UG` |
+| 100 | Configure EVPN next-hop route-map | Creates `NEXT-HOP-UNCHANGED`, which preserves the original VTEP next hop when EVPN routes are re-advertised in eBGP. | `EG-BGP` |
+| 106 | Configure leaf loopback redistribution route-map | Creates `LOOPBACK-ROUTES`, which restricts underlay redistribution to loopbacks tagged with `bgp_loopback_tag`. | `UG`, `EG-BGP` |
+| 112 | Configure host SVI redistribution route-map | Creates `HOST-SVI-ROUTES`, which restricts tenant VRF redistribution to host gateway SVIs tagged with `host_svi_route_tag`. | `EG-HostSVI`, `EG-BGP` |
+| 118 | Configure base BGP on leafs | Instantiates the leaf BGP process and sets a deterministic router-id. | `UG`, `EG-BGP` |
+| 124 | Configure leaf BGP underlay address-family | Enables ECMP and redistributes `LOOPBACK-ROUTES` so overlay and VTEP addresses are reachable across the underlay. | `UG`, `EG-BGP` |
+| 133 | Configure leaf BGP EVPN address-family | Enables EVPN, applies `NEXT-HOP-UNCHANGED`, and retains all route-targets so transit EVPN routes are not discarded. | `EG-BGP` |
+| 142 | Configure leaf underlay BGP neighbors | Creates the eBGP sessions from each leaf to its directly connected spines. | `UG` |
+| 150 | Configure leaf EVPN neighbors | Creates multihop eBGP EVPN sessions from each leaf to the spine loopbacks. | `EG-BGP` |
+| 161 | Configure leaf EVPN neighbor address-family | Sends communities and applies the per-neighbor `NEXT-HOP-UNCHANGED` policy required by the eBGP overlay. | `EG-BGP` |
+| 173 | Configure BGP VRF routing for leafs | Exports tenant IPv4 routes from the VRF RIB into EVPN and redistributes only `HOST-SVI-ROUTES` connected routes. | `EG-VRF`, `EG-BGP` |
+| 185 | Configure VLAN to VNI mappings | Binds each bridged tenant VLAN to its L2 VNI. | `EG-VLAN` |
+| 192 | Configure SVIs for tenant gateways | Creates the distributed anycast default gateway for local endpoints in each VLAN and tags the connected route with `host_svi_route_tag`. | `EG-HostSVI` |
+| 202 | Configure NVE interface base | Brings up the VTEP interface, points it at Loopback1, and enables BGP-based host reachability. | `EG-NVE` |
+| 211 | Configure leaf L2 VNIs on NVE | Attaches each bridged VNI to `nve1` and enables BGP ingress replication for BUM traffic. | `EG-NVE` |
+| 220 | Configure leaf L3 VNIs on NVE | Attaches each routed VNI to `nve1` for tenant routing across the fabric. | `EG-NVE` |
+| 227 | Configure EVPN L2 VNI attributes | Uses explicit EVPN RD/RT overrides for L2 VNIs instead of relying on `auto`. | `EG-VLAN` |
+| 238 | Save leaf configuration when modified | Saves the running configuration to startup configuration only when Ansible changed the device. | `ANS` |
 
 ## Spine Play
 
 | Line | Play or Task | Reason | Source |
 | --- | --- | --- | --- |
-| 240 | Configure spines (VXLAN EVPN on NX-OS) | Applies the routed-underlay and EVPN-control-plane configuration to the transit spines. | `UG`, `EG-BGP` |
-| 252 | Enable required NX-OS features on spines | Enables the BGP and EVPN control-plane features required on the spines. | `UG`, `EG-BGP` |
-| 260 | Configure spine Loopback0 | Creates the stable router-id and EVPN overlay peering source on each spine. | `UG`, `EG-BGP` |
-| 267 | Configure spine underlay interfaces | Creates routed point-to-point links toward the leaves with the fabric MTU. | `UG` |
-| 279 | Configure EVPN next-hop route-map on spines | Creates `NEXT-HOP-UNCHANGED`, which preserves the originating leaf VTEP as next hop when the spine re-advertises EVPN routes. | `EG-BGP` |
-| 285 | Configure spine loopback redistribution route-map | Creates `LOOPBACK-ROUTES`, which restricts underlay redistribution to the spine loopback tagged with `bgp_loopback_tag`. | `UG`, `EG-BGP` |
-| 291 | Configure base BGP on spines | Instantiates the spine BGP process and sets the router-id. | `UG`, `EG-BGP` |
-| 297 | Configure spine BGP underlay address-family | Enables ECMP and redistributes `LOOPBACK-ROUTES` into the eBGP underlay. | `UG`, `EG-BGP` |
-| 306 | Configure spine BGP EVPN address-family | Enables EVPN, applies `NEXT-HOP-UNCHANGED`, and retains all RTs so the spine can relay EVPN routes without owning local VNIs. | `EG-BGP` |
-| 315 | Configure spine underlay BGP neighbors | Creates the eBGP point-to-point underlay sessions from each spine to the leaves. | `UG` |
-| 324 | Configure spine EVPN neighbors | Creates the multihop eBGP EVPN sessions from each spine to the leaf loopbacks. | `EG-BGP` |
-| 333 | Configure spine EVPN neighbor address-family | Sends communities and applies the per-neighbor `NEXT-HOP-UNCHANGED` policy required for eBGP route propagation. | `EG-BGP` |
-| 345 | Save spine configuration when modified | Saves the running configuration only when the play changed the device. | `ANS` |
+| 246 | Configure spines (VXLAN EVPN on NX-OS) | Applies the routed-underlay and EVPN-control-plane configuration to the transit spines. | `UG`, `EG-BGP` |
+| 258 | Enable required NX-OS features on spines | Enables the BGP and EVPN control-plane features required on the spines. | `UG`, `EG-BGP` |
+| 265 | Configure local SSH user on spines | Creates the same local SSH management user and key on spine devices for consistent access control. | `ANS` |
+| 271 | Configure spine Loopback0 | Creates the stable router-id and EVPN overlay peering source on each spine. | `UG`, `EG-BGP` |
+| 278 | Configure spine underlay interfaces | Creates routed point-to-point links toward the leaves with the fabric MTU. | `UG` |
+| 290 | Configure EVPN next-hop route-map on spines | Creates `NEXT-HOP-UNCHANGED`, which preserves the originating leaf VTEP as next hop when the spine re-advertises EVPN routes. | `EG-BGP` |
+| 296 | Configure spine loopback redistribution route-map | Creates `LOOPBACK-ROUTES`, which restricts underlay redistribution to the spine loopback tagged with `bgp_loopback_tag`. | `UG`, `EG-BGP` |
+| 302 | Configure base BGP on spines | Instantiates the spine BGP process and sets the router-id. | `UG`, `EG-BGP` |
+| 308 | Configure spine BGP underlay address-family | Enables ECMP and redistributes `LOOPBACK-ROUTES` into the eBGP underlay. | `UG`, `EG-BGP` |
+| 317 | Configure spine BGP EVPN address-family | Enables EVPN, applies `NEXT-HOP-UNCHANGED`, and retains all RTs so the spine can relay EVPN routes without owning local VNIs. | `EG-BGP` |
+| 326 | Configure spine underlay BGP neighbors | Creates the eBGP point-to-point underlay sessions from each spine to the leaves. | `UG` |
+| 334 | Configure spine EVPN neighbors | Creates the multihop eBGP EVPN sessions from each spine to the leaf loopbacks. | `EG-BGP` |
+| 345 | Configure spine EVPN neighbor address-family | Sends communities and applies the per-neighbor `NEXT-HOP-UNCHANGED` policy required for eBGP route propagation. | `EG-BGP` |
+| 357 | Save spine configuration when modified | Saves the running configuration only when the play changed the device. | `ANS` |
 
 ## Review Notes
 
@@ -85,3 +90,4 @@ The current playbook is structured like a non-vPC leaf/spine EVPN fabric. It fol
 - The playbook uses BGP ingress replication, so it intentionally does not configure multicast underlay, PIM, or Anycast-RP.
 - The playbook uses manual route-targets because Cisco documents `auto` route-targets as iBGP-only.
 - The playbook is not a vPC design. Because of that, it does not try to build the vPC-specific backup sessions or same-AS leaf pair exceptions shown elsewhere in the guide.
+- The playbook also manages a local SSH user and SSH key on both leaves and spines via `group_vars/all.yml`.
