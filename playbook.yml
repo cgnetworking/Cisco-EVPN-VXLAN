@@ -147,6 +147,16 @@
       loop: "{{ links }}"
       when: item.leaf == inventory_hostname
 
+    - name: Activate leaf underlay neighbors for IPv4 unicast
+      cisco.nxos.nxos_config:
+        parents:
+          - router bgp {{ asn }}
+          - neighbor {{ item.spine_ip.split('/')[0] }}
+        lines:
+          - address-family ipv4 unicast
+      loop: "{{ links }}"
+      when: item.leaf == inventory_hostname
+
     - name: Configure leaf EVPN neighbors
       cisco.nxos.nxos_config:
         parents:
@@ -328,6 +338,16 @@
         parents: router bgp {{ asn }}
         lines:
           - neighbor {{ item.leaf_ip.split('/')[0] }} remote-as {{ hostvars[item.leaf].asn }}
+      loop: "{{ links }}"
+      when: item.spine == inventory_hostname
+
+    - name: Activate spine underlay neighbors for IPv4 unicast
+      cisco.nxos.nxos_config:
+        parents:
+          - router bgp {{ asn }}
+          - neighbor {{ item.leaf_ip.split('/')[0] }}
+        lines:
+          - address-family ipv4 unicast
       loop: "{{ links }}"
       when: item.spine == inventory_hostname
 
